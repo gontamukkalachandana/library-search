@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced Digital Library</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f2027, #2c5364);
+    color: white;
+}
+
+.container {
+    width: 90%;
+    margin: auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    background: linear-gradient(90deg,#ff9966,#ff5e62);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* SEARCH BAR */
+.search-panel {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+input, select {
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+}
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(250px,1fr));
+    gap: 15px;
+}
+
+/* BOOK CARD */
+.book {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 15px;
+    transition: 0.3s;
+    position: relative;
+}
+
+.book:hover {
+    transform: translateY(-5px);
+}
+
+.favorite {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    cursor: pointer;
+}
+
+.stats {
+    margin-top: 10px;
+    opacity: 0.8;
+}
+
+.chart {
+    margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>📚 Smart Digital Library</h1>
+
+    <div class="search-panel">
+        <input type="text" id="search" placeholder="Search title or author...">
+        <select id="filterAuthor">
+            <option value="">All Authors</option>
+        </select>
+        <select id="sort">
+            <option value="relevance">Sort by Relevance</option>
+            <option value="title">Sort by Title</option>
+        </select>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div class="results" id="results"></div>
+
+    <div class="chart" id="chart"></div>
+</div>
+
+<script>
+/* ---------------- DATA GENERATION ---------------- */
+const books = [];
+const titles = ["AI","Future","Data","Science","Magic","World","Journey"];
+const authors = ["Alice","Bob","Charlie","David","Emma","Sophia"];
+
+for(let i=0;i<1500;i++){
+    books.push({
+        title: titles[Math.floor(Math.random()*titles.length)] + " " + i,
+        author: authors[Math.floor(Math.random()*authors.length)],
+        popularity: Math.random()
+    });
+}
+
+/* Populate filter dropdown */
+const filterAuthor = document.getElementById("filterAuthor");
+authors.forEach(a=>{
+    filterAuthor.innerHTML += `<option value="${a}">${a}</option>`;
+});
+
+/* ---------------- FAVORITES ---------------- */
+let favorites = JSON.parse(localStorage.getItem("fav")) || [];
+
+function toggleFavorite(title){
+    if(favorites.includes(title)){
+        favorites = favorites.filter(f=>f!==title);
+    } else {
+        favorites.push(title);
+    }
+    localStorage.setItem("fav", JSON.stringify(favorites));
+    search();
+}
+
+/* ---------------- SEARCH ENGINE ---------------- */
+function rankScore(book, query){
+    let score = 0;
+    if(book.title.toLowerCase().includes(query)) score += 2;
+    if(book.author.toLowerCase().includes(query)) score += 1;
+    score += book.popularity;
+    return score;
+}
+
+/* Debounce */
+let timer;
+document.getElementById("search").addEventListener("input", ()=>{
+    clearTimeout(timer);
+    timer = setTimeout(search, 300);
+});
+
+function search(){
+    const query = document.getElementById("search").value.toLowerCase();
+    const authorFilter = filterAuthor.value;
+    const sortType = document.getElementById("sort").value;
+
+    const start = performance.now();
+
+    let result = books.filter(b=>{
+        return (!authorFilter || b.author===authorFilter) &&
+        (b.title.toLowerCase().includes(query) || b.author.toLowerCase().includes(query));
+    });
+
+    result = result.map(b=>({...b, score: rankScore(b, query)}));
+
+    if(sortType==="relevance"){
+        result.sort((a,b)=>b.score-a.score);
+    } else {
+        result.sort((a,b)=>a.title.localeCompare(b.title));
+    }
+
+    const end = performance.now();
+
+    display(result.slice(0,50));
+    showStats(result.length, end-start);
+    showAnalytics(result);
+}
+
+/* ---------------- DISPLAY ---------------- */
+function display(data){
+    const results = document.getElementById("results");
+    results.innerHTML = "";
+
+    data.forEach(book=>{
+        results.innerHTML += `
+        <div class="book">
+            <div class="favorite" onclick="toggleFavorite('${book.title}')">
+                ${favorites.includes(book.title) ? "❤️" : "🤍"}
+            </div>
+            <h3>${book.title}</h3>
+            <p>${book.author}</p>
+        </div>
+        `;
+    });
+}
+
+/* ---------------- STATS ---------------- */
+function showStats(count, time){
+    document.getElementById("stats").innerText =
+    `Results: ${count} | Time: ${time.toFixed(2)} ms`;
+}
+
+/* ---------------- ANALYTICS ---------------- */
+function showAnalytics(data){
+    const chart = document.getElementById("chart");
+
+    let count = {};
+    data.forEach(b=>{
+        count[b.author] = (count[b.author] || 0) + 1;
+    });
+
+    chart.innerHTML = "<h3>📊 Top Authors</h3>";
+
+    for(let a in count){
+        chart.innerHTML += `<p>${a}: ${count[a]}</p>`;
+    }
+}
+
+/* Initial load */
+search();
+</script>
+
+</body>
+</html>
